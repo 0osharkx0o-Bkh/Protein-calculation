@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1115">
+<title>Protein Tracker</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#181b22; --line:#262a33; --text:#eceef2; --muted:#8b92a1;
+    --accent:#4ade80; --accent2:#22c55e; --warn:#fbbf24; --danger:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;padding-bottom:60px}
+  .wrap{max-width:560px;margin:0 auto;display:grid;gap:14px}
+  h1{font-size:20px;margin:0}
+  h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row>*{min-width:0}
+  .grow{flex:1}
+  input,select,button{font:inherit;color:var(--text);background:#0f1218;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  input,select{width:100%}
+  input:focus,select:focus{outline:2px solid var(--accent2);outline-offset:0}
+  button{cursor:pointer;background:#20242d}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--accent2);border-color:var(--accent2);color:#05210f;font-weight:700}
+  button.ghost{background:transparent}
+  button.small{padding:6px 10px;font-size:13px}
+  button.danger{color:var(--danger)}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  .total{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .big{font-size:44px;font-weight:800;line-height:1}
+  .big small{font-size:18px;color:var(--muted);font-weight:600}
+  .bar{height:12px;background:#0f1218;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:12px 0 8px}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .3s}
+  .muted{color:var(--muted);font-size:14px}
+  .preview{margin-top:8px;font-size:14px;color:var(--accent);min-height:20px}
+  ul{list-style:none;margin:0;padding:0}
+  li.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  li.item:first-child{border-top:0}
+  li .name{flex:1}
+  li .name b{display:block;font-weight:600}
+  li .name span{color:var(--muted);font-size:13px}
+  li .p{font-weight:700;white-space:nowrap}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .chip{padding:6px 10px;border-radius:99px;font-size:13px;background:#20242d;border:1px solid var(--line);cursor:pointer}
+  .chip.on{background:var(--accent2);color:#05210f;border-color:var(--accent2);font-weight:700}
+  details summary{cursor:pointer;color:var(--muted);font-weight:600;font-size:15px;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"▸ ";}
+  details[open] summary::before{content:"▾ ";}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hist{display:grid;grid-template-columns:90px 1fr 56px;gap:8px;align-items:center;padding:5px 0;font-size:14px;cursor:pointer}
+  .hist .b{height:8px;background:#0f1218;border-radius:99px;overflow:hidden}
+  .hist .b i{display:block;height:100%;background:var(--accent2)}
+  .hist .v{text-align:right;font-weight:700}
+  .hide{display:none}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#20242d;border:1px solid var(--line);padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="row">
+    <h1 class="grow">🥩 Protein Tracker</h1>
+    <input type="date" id="date" style="width:auto">
+  </div>
+
+  <!-- Total -->
+  <div class="card">
+    <div class="total">
+      <div class="big"><span id="total">0</span><small> / <span id="targetShow">125</span> g</small></div>
+      <div class="muted" id="remaining"></div>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="row">
+      <span class="muted grow">Daily target</span>
+      <input type="number" id="target" inputmode="decimal" style="width:90px" min="1">
+      <span class="muted">g</span>
+    </div>
+  </div>
+
+  <!-- Add food -->
+  <div class="card">
+    <h2>Add food</h2>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <div class="grow">
+        <label id="amountLabel" for="amount">Amount</label>
+        <input type="text" id="amount" inputmode="decimal" placeholder="150" autocomplete="off">
+      </div>
+      <div style="align-self:end"><button class="primary" id="addBtn">Add</button></div>
+    </div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <!-- Quick protein -->
+  <div class="card">
+    <h2>Quick add (pure protein)</h2>
+    <div class="row">
+      <input type="text" id="quickG" inputmode="decimal" placeholder="grams of protein" autocomplete="off">
+      <input type="text" id="quickName" placeholder="label (optional)" autocomplete="off">
+      <button class="primary" id="quickBtn">Add</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h2>Eaten this day</h2>
+    <ul id="log"></ul>
+    <div class="muted" id="emptyLog">Nothing logged yet.</div>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <h2>Last 14 days</h2>
+    <div id="history"></div>
+  </div>
+
+  <!-- Foods manager -->
+  <div class="card">
+    <details id="foodsDetails">
+      <summary>My foods (add / edit)</summary>
+      <div style="margin-top:12px">
+        <ul id="foodList"></ul>
+        <h2 style="margin-top:16px" id="formTitle">Add a new food</h2>
+        <div style="display:grid;gap:8px">
+          <div>
+            <label>Name</label>
+            <input type="text" id="fName" placeholder="e.g. Tuna can">
+          </div>
+          <div>
+            <label>How do you measure it?</label>
+            <select id="fMode">
+              <option value="g">By weight (protein per 100 g)</option>
+              <option value="piece">By pieces (per 100 g + weight of one piece)</option>
+              <option value="unit">By unit (fixed protein per pot/egg/can…)</option>
+            </select>
+          </div>
+          <div class="grid2" id="fG">
+            <div><label>Protein per 100 g</label><input type="text" inputmode="decimal" id="fPer100"></div>
+          </div>
+          <div class="grid2 hide" id="fPiece">
+            <div><label>Weight of one piece (g)</label><input type="text" inputmode="decimal" id="fPieceG"></div>
+            <div><label>Piece name</label><input type="text" id="fPieceLabel" placeholder="slices"></div>
+          </div>
+          <div class="grid2 hide" id="fUnit">
+            <div><label>Protein per unit (g)</label><input type="text" inputmode="decimal" id="fPerUnit"></div>
+            <div><label>Unit name</label><input type="text" id="fUnitLabel" placeholder="pots"></div>
+          </div>
+          <div class="muted" id="fHint"></div>
+          <div class="row">
+            <button class="primary grow" id="fSave">Save food</button>
+            <button class="ghost" id="fCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- Backup -->
+  <div class="card">
+    <details>
+      <summary>Backup</summary>
+      <p class="muted">Your data is stored in this browser only. Export a backup now and then, and use import to move it to another device.</p>
+      <div class="row">
+        <button class="grow" id="exportBtn">Export</button>
+        <button class="grow" id="importBtn">Import</button>
+        <button class="grow danger" id="resetBtn">Reset</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" class="hide">
+    </details>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const KEY = 'proteinTracker.v1';
+
+  // ---------- default foods (all editable in the app) ----------
+  const DEFAULT_FOODS = [
+    {id:'chicken-cooked', name:'Chicken, cooked',  mode:'g', per100:31},
+    {id:'chicken-raw',    name:'Chicken, raw',     mode:'g', per100:23},
+    {id:'beef-cooked',    name:'Beef, cooked',     mode:'g', per100:27},
+    {id:'beef-raw',       name:'Beef, raw',        mode:'g', per100:21},
+    {id:'smoked-meat',    name:'Smoked meat',      mode:'g', per100:22},
+    {id:'peanuts-smoked', name:'Smoked peanuts',   mode:'g', per100:25},
+    {id:'peanuts',        name:'Peanuts',          mode:'g', per100:26},
+    {id:'cheese-slice',   name:'Cheese slice',     mode:'piece', per100:12,    pieceG:10,   pieceLabel:'slices'},
+    {id:'cheese-triangle',name:'Triangle cheese',  mode:'piece', per100:11.62, pieceG:13.5, pieceLabel:'triangles'},
+    {id:'camembert',      name:'Camembert (est.)', mode:'g', per100:15},
+    {id:'cream-pot',      name:'Cream pot',        mode:'unit', perUnit:11, unitLabel:'pots'},
+    {id:'skyr-pot',       name:'Skyr pot',         mode:'unit', perUnit:11, unitLabel:'pots'},
+    {id:'egg',            name:'Egg',              mode:'unit', perUnit:6,  unitLabel:'eggs'}
+  ];
+
+  // ---------- state ----------
+  let state = load();
+  let selectedId = state.lastFood || state.foods[0].id;
+  let editingId = null;
+  let currentDate = todayStr();
+
+  function load(){
+    try{
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if(s && Array.isArray(s.foods) && s.foods.length) return Object.assign({log:{},target:125},s);
+    }catch(e){}
+    return {foods: JSON.parse(JSON.stringify(DEFAULT_FOODS)), log:{}, target:125, lastFood:null};
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('Could not save (storage blocked?)'); }
+  }
+
+  // ---------- helpers ----------
+  const $ = id => document.getElementById(id);
+  function pad(n){return String(n).padStart(2,'0')}
+  function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+  function num(v){const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:NaN}
+  function r1(n){return Math.round(n*10)/10}
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function uid(){return 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+  function getFood(id){return state.foods.find(f=>f.id===id)}
+  function unitName(f){
+    if(f.mode==='g') return 'grams';
+    if(f.mode==='piece') return f.pieceLabel||'pieces';
+    return f.unitLabel||'units';
+  }
+  function calc(f, amount){
+    if(f.mode==='g') return amount*f.per100/100;
+    if(f.mode==='piece') return amount*f.pieceG*f.per100/100;
+    return amount*f.perUnit;
+  }
+  function perPieceProtein(f){return f.pieceG*f.per100/100}
+  function describe(f){
+    if(f.mode==='g') return r1(f.per100)+' g / 100 g';
+    if(f.mode==='piece') return r1(perPieceProtein(f)*100)/100+' g each ('+f.pieceG+' g @ '+f.per100+'/100 g)';
+    return r1(f.perUnit)+' g each';
+  }
+  let toastT;
+  function toast(msg){
+    const t=$('toast');t.textContent=msg;t.classList.add('show');
+    clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1800);
+  }
+  function dayTotal(date){return (state.log[date]||[]).reduce((s,e)=>s+e.protein,0)}
+
+  // ---------- rendering ----------
+  function renderTop(){
+    const total = dayTotal(currentDate);
+    const tgt = state.target;
+    $('total').textContent = r1(total);
+    $('targetShow').textContent = tgt;
+    $('target').value = tgt;
+    const pct = Math.min(100, total/tgt*100);
+    $('bar').style.width = pct+'%';
+    const diff = tgt-total;
+    $('remaining').textContent = diff>0 ? r1(diff)+' g to go' : '✅ target hit (+'+r1(-diff)+' g)';
+  }
+
+  function renderChips(){
+    $('chips').innerHTML = state.foods.map(f=>
+      '<span class="chip'+(f.id===selectedId?' on':'')+'" data-id="'+esc(f.id)+'">'+esc(f.name)+'</span>'
+    ).join('');
+    $('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+      selectedId=c.dataset.id;state.lastFood=selectedId;save();
+      renderChips();updateAmountUI();$('amount').focus();
+    });
+  }
+
+  function updateAmountUI(){
+    const f = getFood(selectedId);
+    if(!f){return}
+    $('amountLabel').textContent = f.name+' — '+unitName(f)+'  ('+describe(f)+')';
+    $('amount').placeholder = f.mode==='g' ? '150' : '1';
+    updatePreview();
+  }
+  function updatePreview(){
+    const f=getFood(selectedId), a=num($('amount').value);
+    $('preview').textContent = (f && a>0) ? '= '+r1(calc(f,a))+' g protein' : '';
+  }
+
+  function renderLog(){
+    const items = state.log[currentDate]||[];
+    $('emptyLog').classList.toggle('hide', items.length>0);
+    $('log').innerHTML = items.map(e=>
+      '<li class="item"><div class="name"><b>'+esc(e.name)+'</b><span>'+esc(e.detail)+'</span></div>'+
+      '<div class="p">'+r1(e.protein)+' g</div>'+
+      '<button class="small ghost danger" data-del="'+esc(e.id)+'" aria-label="delete">✕</button></li>'
+    ).join('');
+    $('log').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+      state.log[currentDate]=(state.log[currentDate]||[]).filter(e=>e.id!==b.dataset.del);
+      if(!state.log[currentDate].length) delete state.log[currentDate];
+      save();renderAll();
+    });
+  }
+
+  function renderHistory(){
+    const rows=[];
+    const d=new Date();
+    for(let i=0;i<14;i++){
+      const s=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      rows.push({s,t:dayTotal(s)});
+      d.setDate(d.getDate()-1);
+    }
+    $('history').innerHTML = rows.map(r=>{
+      const pct=Math.min(100,r.t/state.target*100);
+      const label = r.s===todayStr()?'Today':r.s.slice(5);
+      return '<div class="hist" data-d="'+r.s+'"><span'+(r.s===currentDate?' style="color:var(--accent);font-weight:700"':'')+'>'+label+'</span>'+
+        '<div class="b"><i style="width:'+pct+'%"></i></div><span class="v">'+(r.t?r1(r.t):'–')+'</span></div>';
+    }).join('');
+    $('history').querySelectorAll('.hist').forEach(h=>h.onclick=()=>{
+      currentDate=h.dataset.d;$('date').value=currentDate;renderAll();
+    });
+  }
+
+  function renderFoods(){
+    $('foodList').innerHTML = state.foods.map(f=>
+      '<li class="item"><div class="name"><b>'+esc(f.name)+'</b><span>'+esc(describe(f))+'</span></div>'+
+      '<button class="small" data-edit="'+esc(f.id)+'">Edit</button>'+
+      '<button class="small ghost danger" data-rm="'+esc(f.id)+'">✕</button></li>'
+    ).join('');
+    $('foodList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>startEdit(b.dataset.edit));
+    $('foodList').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
+      const f=getFood(b.dataset.rm);
+      if(state.foods.length<=1){toast('Keep at least one food');return}
+      if(!confirm('Delete "'+f.name+'"? Past log entries stay as they are.'))return;
+      state.foods=state.foods.filter(x=>x.id!==f.id);
+      if(selectedId===f.id) selectedId=state.foods[0].id;
+      save();renderAll();
+    });
+  }
+
+  function renderAll(){renderTop();renderChips();updateAmountUI();renderLog();renderHistory();renderFoods()}
+
+  // ---------- add entries ----------
+  function addEntry(entry){
+    (state.log[currentDate]=state.log[currentDate]||[]).push(entry);
+    save();renderAll();
+  }
+  $('addBtn').onclick = ()=>{
+    const f=getFood(selectedId), a=num($('amount').value);
+    if(!f||!(a>0)){toast('Enter an amount');return}
+    addEntry({id:uid(),name:f.name,detail:a+' '+unitName(f),protein:calc(f,a)});
+    $('amount').value='';updatePreview();$('amount').focus();
+    toast('+'+r1(calc(f,a))+' g');
+  };
+  $('amount').addEventListener('input',updatePreview);
+  $('amount').addEventListener('keydown',e=>{if(e.key==='Enter')$('addBtn').click()});
+
+  $('quickBtn').onclick = ()=>{
+    const g=num($('quickG').value);
+    if(!(g>0)){toast('Enter grams of protein');return}
+    const label=$('quickName').value.trim()||'Quick protein';
+    addEntry({id:uid(),name:label,detail:'direct protein',protein:g});
+    $('quickG').value='';$('quickName').value='';
+    toast('+'+r1(g)+' g');
+  };
+  $('quickG').addEventListener('keydown',e=>{if(e.key==='Enter')$('quickBtn').click()});
+
+  // ---------- target & date ----------
+  $('target').addEventListener('change',()=>{
+    const t=num($('target').value);
+    if(t>0){state.target=t;save();renderAll()}else{$('target').value=state.target}
+  });
+  $('date').value=currentDate;
+  $('date').addEventListener('change',()=>{
+    if($('date').value){currentDate=$('date').value;renderAll()}
+  });
+
+  // ---------- food form ----------
+  function setMode(m){
+    $('fMode').value=m;
+    $('fG').classList.toggle('hide', m==='unit');
+    $('fPiece').classList.toggle('hide', m!=='piece');
+    $('fUnit').classList.toggle('hide', m!=='unit');
+    updateHint();
+  }
+  function updateHint(){
+    const m=$('fMode').value;
+    if(m==='piece'){
+      const p=num($('fPer100').value), w=num($('fPieceG').value);
+      $('fHint').textContent=(p>0&&w>0)?'One piece = '+(Math.round(p*w)/100)+' g protein':'';
+    }else $('fHint').textContent='';
+  }
+  ['fPer100','fPieceG'].forEach(id=>$(id).addEventListener('input',updateHint));
+  $('fMode').addEventListener('change',()=>setMode($('fMode').value));
+
+  function clearForm(){
+    editingId=null;
+    ['fName','fPer100','fPieceG','fPieceLabel','fPerUnit','fUnitLabel'].forEach(id=>$(id).value='');
+    setMode('g');
+    $('formTitle').textContent='Add a new food';
+  }
+  function startEdit(id){
+    const f=getFood(id);if(!f)return;
+    editingId=id;
+    $('fName').value=f.name;
+    $('fPer100').value=f.per100??'';
+    $('fPieceG').value=f.pieceG??'';
+    $('fPieceLabel').value=f.pieceLabel??'';
+    $('fPerUnit').value=f.perUnit??'';
+    $('fUnitLabel').value=f.unitLabel??'';
+    setMode(f.mode);
+    $('formTitle').textContent='Editing: '+f.name;
+    $('fName').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  $('fCancel').onclick=clearForm;
+  $('fSave').onclick=()=>{
+    const name=$('fName').value.trim(), mode=$('fMode').value;
+    if(!name){toast('Give it a name');return}
+    const food={id:editingId||uid(),name,mode};
+    if(mode==='g'){
+      const p=num($('fPer100').value);if(!(p>=0)){toast('Protein per 100 g?');return}
+      food.per100=p;
+    }else if(mode==='piece'){
+      const p=num($('fPer100').value), w=num($('fPieceG').value);
+      if(!(p>=0)||!(w>0)){toast('Fill protein/100 g and piece weight');return}
+      food.per100=p;food.pieceG=w;food.pieceLabel=$('fPieceLabel').value.trim()||'pieces';
+    }else{
+      const p=num($('fPerUnit').value);if(!(p>=0)){toast('Protein per unit?');return}
+      food.perUnit=p;food.unitLabel=$('fUnitLabel').value.trim()||'units';
+    }
+    if(editingId){state.foods=state.foods.map(f=>f.id===editingId?food:f)}
+    else{state.foods.push(food);selectedId=food.id;state.lastFood=food.id}
+    save();clearForm();renderAll();toast('Saved');
+  };
+
+  // ---------- backup ----------
+  $('exportBtn').onclick=()=>{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download='protein-tracker-backup-'+todayStr()+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  };
+  $('importBtn').onclick=()=>$('importFile').click();
+  $('importFile').addEventListener('change',e=>{
+    const file=e.target.files[0];if(!file)return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const s=JSON.parse(rd.result);
+        if(!s||!Array.isArray(s.foods)||!s.foods.length||typeof s.log!=='object') throw 0;
+        if(!confirm('Replace current data with this backup?'))return;
+        state=Object.assign({log:{},target:125},s);
+        selectedId=state.lastFood&&getFood(state.lastFood)?state.lastFood:state.foods[0].id;
+        save();renderAll();toast('Imported');
+      }catch(err){toast('Invalid backup file')}
+    };
+    rd.readAsText(file);e.target.value='';
+  });
+  $('resetBtn').onclick=()=>{
+    if(!confirm('Erase ALL data (log + custom foods)?'))return;
+    localStorage.removeItem(KEY);
+    state=load();selectedId=state.foods[0].id;renderAll();toast('Reset');
+  };
+
+  // keep "today" correct if the page stays open past midnight and user hasn't changed the date
+  renderAll();
+})();
+</script>
+</body>
+</html>
